@@ -339,15 +339,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       ...(choice.message.annotations
         ?.filter((annotation) => annotation.type === 'url_citation')
         .map((citation) => ({
-          url: citation.url,
-          title: citation.title,
+          url: citation.url_citation.url,
+          title: citation.url_citation.title,
         })).length
         ? {
             experimental_citations: choice.message.annotations
               ?.filter((annotation) => annotation.type === 'url_citation')
               .map((citation) => ({
-                url: citation.url,
-                title: citation.title,
+                url: citation.url_citation.url,
+                title: citation.url_citation.title,
               })),
           }
         : {}),
@@ -678,8 +678,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               const citations = choice.delta.annotations
                 .filter((annotation) => annotation.type === 'url_citation')
                 .map((citation) => ({
-                  url: citation.url,
-                  title: citation.title,
+                  url: citation.url_citation.url,
+                  title: citation.url_citation.title,
                 }));
 
               if (citations.length > 0) {
@@ -806,8 +806,13 @@ const OpenRouterNonStreamChatCompletionResponseSchema =
             .array(
               z.object({
                 type: z.literal('url_citation'),
-                url: z.string(),
-                title: z.string().optional(),
+                url_citation: z.object({
+                  url: z.string(),
+                  title: z.string().optional(),
+                  content: z.string().optional(),
+                  start_index: z.number().optional(),
+                  end_index: z.number().optional(),
+                }),
               }),
             )
             .optional(),
@@ -866,8 +871,13 @@ const OpenRouterStreamChatCompletionChunkSchema = z.union([
               .array(
                 z.object({
                   type: z.literal('url_citation'),
-                  url: z.string(),
-                  title: z.string().optional(),
+                  url_citation: z.object({
+                    url: z.string(),
+                    title: z.string().optional(),
+                    content: z.string().optional(),
+                    start_index: z.number().optional(),
+                    end_index: z.number().optional(),
+                  }),
                 }),
               )
               .nullish(),

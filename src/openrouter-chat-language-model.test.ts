@@ -305,7 +305,19 @@ describe('doGenerate', () => {
     });
   });
 
-  it('should extract citations from non-streaming response', async () => {
+  it('should handle response without citations', async () => {
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    const response = await model.doGenerate({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    expect((response as any).experimental_citations).toBeUndefined();
+  });
+
+  it('should extract citations from non-streaming response with nested url_citation structure', async () => {
     server.responseBodyJson = {
       id: 'chatcmpl-test',
       object: 'chat.completion',
@@ -320,13 +332,25 @@ describe('doGenerate', () => {
             annotations: [
               {
                 type: 'url_citation',
-                url: 'https://example.com/article1',
-                title: 'Example Article 1',
+                url_citation: {
+                  url: 'https://www.dictionary.com/browse/hi',
+                  title: 'HI Definition & Meaning - Dictionary.com',
+                  content:
+                    'View synonyms for [hi](https://www.thesaurus.com/browse/hi)...',
+                  start_index: 0,
+                  end_index: 0,
+                },
               },
               {
                 type: 'url_citation',
-                url: 'https://example.com/article2',
-                title: 'Example Article 2',
+                url_citation: {
+                  url: 'https://www.vocabulary.com/dictionary/hi',
+                  title: 'Hi - Definition, Meaning & Synonyms - Vocabulary.com',
+                  content:
+                    'DISCLAIMER: These example sentences appear in various news sources...',
+                  start_index: 0,
+                  end_index: 0,
+                },
               },
             ],
           },
@@ -343,24 +367,18 @@ describe('doGenerate', () => {
     });
 
     expect((response as any).experimental_citations).toEqual([
-      { url: 'https://example.com/article1', title: 'Example Article 1' },
-      { url: 'https://example.com/article2', title: 'Example Article 2' },
+      {
+        url: 'https://www.dictionary.com/browse/hi',
+        title: 'HI Definition & Meaning - Dictionary.com',
+      },
+      {
+        url: 'https://www.vocabulary.com/dictionary/hi',
+        title: 'Hi - Definition, Meaning & Synonyms - Vocabulary.com',
+      },
     ]);
   });
 
-  it('should handle response without citations', async () => {
-    prepareJsonResponse({ content: 'Hello, World!' });
-
-    const response = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
-      prompt: TEST_PROMPT,
-    });
-
-    expect((response as any).experimental_citations).toBeUndefined();
-  });
-
-  it('should handle citations without titles', async () => {
+  it('should handle citations without titles in nested structure', async () => {
     server.responseBodyJson = {
       id: 'chatcmpl-test',
       object: 'chat.completion',
@@ -375,7 +393,12 @@ describe('doGenerate', () => {
             annotations: [
               {
                 type: 'url_citation',
-                url: 'https://example.com/article1',
+                url_citation: {
+                  url: 'https://example.com/article1',
+                  content: 'Some content without a title',
+                  start_index: 0,
+                  end_index: 0,
+                },
               },
             ],
           },
@@ -959,7 +982,7 @@ describe('doStream', () => {
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.responseChunks = ['data: {unparsable}\n\n', 'data: [DONE]\n\n'];
+    server.responseChunks = ['data: invalid json\n\n', 'data: [DONE]\n\n'];
 
     const { stream } = await model.doStream({
       inputFormat: 'prompt',
@@ -980,6 +1003,53 @@ describe('doStream', () => {
         promptTokens: Number.NaN,
       },
     });
+  });
+
+  it('should stream citations with nested url_citation structure', async () => {
+    server.responseChunks = [
+      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"Hi"},"finish_reason":null}]}\n\n`,
+      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"annotations":[{"type":"url_citation","url_citation":{"url":"https://www.dictionary.com/browse/hi","title":"HI Definition & Meaning - Dictionary.com","content":"View synonyms for [hi](https://www.thesaurus.com/browse/hi)...","start_index":0,"end_index":0}}]},"finish_reason":null}]}\n\n`,
+      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"annotations":[{"type":"url_citation","url_citation":{"url":"https://www.vocabulary.com/dictionary/hi","title":"Hi - Definition, Meaning & Synonyms - Vocabulary.com","content":"DISCLAIMER: These example sentences appear in various news sources...","start_index":0,"end_index":0}}]},"finish_reason":null}]}\n\n`,
+      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+      'data: [DONE]\n\n',
+    ];
+
+    const { stream } = await model.doStream({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    expect(elements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'experimental-citations',
+          citations: [
+            {
+              url: 'https://www.dictionary.com/browse/hi',
+              title: 'HI Definition & Meaning - Dictionary.com',
+            },
+          ],
+        }),
+        expect.objectContaining({
+          type: 'experimental-citations',
+          citations: [
+            {
+              url: 'https://www.vocabulary.com/dictionary/hi',
+              title: 'Hi - Definition, Meaning & Synonyms - Vocabulary.com',
+            },
+          ],
+        }),
+      ]),
+    );
   });
 
   it('should expose the raw response headers', async () => {
@@ -1021,62 +1091,6 @@ describe('doStream', () => {
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
     });
-  });
-
-  it('should extract citations from streaming response', async () => {
-    server.responseChunks = [
-      'data: {"choices":[{"delta":{"role":"assistant"},"index":0}]}\n\n',
-      'data: {"choices":[{"delta":{"content":"Here is some information"},"index":0}]}\n\n',
-      'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url":"https://example.com/article1","title":"Example Article 1"}]},"index":0}]}\n\n',
-      'data: {"choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n',
-      'data: [DONE]\n\n',
-    ];
-
-    const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
-      prompt: TEST_PROMPT,
-    });
-
-    const chunks = await convertReadableStreamToArray(stream);
-    const citationChunks = chunks.filter(
-      (chunk: any) => chunk.type === 'experimental-citations',
-    );
-
-    expect(citationChunks).toHaveLength(1);
-    expect((citationChunks[0] as any).citations).toEqual([
-      { url: 'https://example.com/article1', title: 'Example Article 1' },
-    ]);
-  });
-
-  it('should handle multiple citation chunks in streaming response', async () => {
-    server.responseChunks = [
-      'data: {"choices":[{"delta":{"role":"assistant"},"index":0}]}\n\n',
-      'data: {"choices":[{"delta":{"content":"Here is some information"},"index":0}]}\n\n',
-      'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url":"https://example.com/article1","title":"Example Article 1"}]},"index":0}]}\n\n',
-      'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url":"https://example.com/article2"}]},"index":0}]}\n\n',
-      'data: {"choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n',
-      'data: [DONE]\n\n',
-    ];
-
-    const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
-      prompt: TEST_PROMPT,
-    });
-
-    const chunks = await convertReadableStreamToArray(stream);
-    const citationChunks = chunks.filter(
-      (chunk: any) => chunk.type === 'experimental-citations',
-    );
-
-    expect(citationChunks).toHaveLength(2);
-    expect((citationChunks[0] as any).citations).toEqual([
-      { url: 'https://example.com/article1', title: 'Example Article 1' },
-    ]);
-    expect((citationChunks[1] as any).citations).toEqual([
-      { url: 'https://example.com/article2', title: undefined },
-    ]);
   });
 
   it('should pass headers', async () => {
