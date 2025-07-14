@@ -314,7 +314,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect((response as any).experimental_citations).toBeUndefined();
+    expect((response as any).sources).toEqual([]);
   });
 
   it('should extract citations from non-streaming response with nested url_citation structure', async () => {
@@ -366,12 +366,16 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect((response as any).experimental_citations).toEqual([
+    expect((response as any).sources).toEqual([
       {
+        sourceType: 'url',
+        id: 'https://www.dictionary.com/browse/hi',
         url: 'https://www.dictionary.com/browse/hi',
         title: 'HI Definition & Meaning - Dictionary.com',
       },
       {
+        sourceType: 'url',
+        id: 'https://www.vocabulary.com/dictionary/hi',
         url: 'https://www.vocabulary.com/dictionary/hi',
         title: 'Hi - Definition, Meaning & Synonyms - Vocabulary.com',
       },
@@ -414,8 +418,13 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect((response as any).experimental_citations).toEqual([
-      { url: 'https://example.com/article1', title: undefined },
+    expect((response as any).sources).toEqual([
+      {
+        sourceType: 'url',
+        id: 'https://example.com/article1',
+        url: 'https://example.com/article1',
+        title: undefined,
+      },
     ]);
   });
 
@@ -1031,22 +1040,22 @@ describe('doStream', () => {
     expect(elements).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: 'experimental-citations',
-          citations: [
-            {
-              url: 'https://www.dictionary.com/browse/hi',
-              title: 'HI Definition & Meaning - Dictionary.com',
-            },
-          ],
+          type: 'source',
+          source: {
+            sourceType: 'url',
+            id: 'https://www.dictionary.com/browse/hi',
+            url: 'https://www.dictionary.com/browse/hi',
+            title: 'HI Definition & Meaning - Dictionary.com',
+          },
         }),
         expect.objectContaining({
-          type: 'experimental-citations',
-          citations: [
-            {
-              url: 'https://www.vocabulary.com/dictionary/hi',
-              title: 'Hi - Definition, Meaning & Synonyms - Vocabulary.com',
-            },
-          ],
+          type: 'source',
+          source: {
+            sourceType: 'url',
+            id: 'https://www.vocabulary.com/dictionary/hi',
+            url: 'https://www.vocabulary.com/dictionary/hi',
+            title: 'Hi - Definition, Meaning & Synonyms - Vocabulary.com',
+          },
         }),
       ]),
     );

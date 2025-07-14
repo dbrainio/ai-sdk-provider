@@ -336,21 +336,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       rawResponse: { headers: responseHeaders },
       warnings: [],
       logprobs: mapOpenRouterChatLogProbsOutput(choice.logprobs),
-      ...(choice.message.annotations
-        ?.filter((annotation) => annotation.type === 'url_citation')
-        .map((citation) => ({
-          url: citation.url_citation.url,
-          title: citation.url_citation.title,
-        })).length
-        ? {
-            experimental_citations: choice.message.annotations
-              ?.filter((annotation) => annotation.type === 'url_citation')
-              .map((citation) => ({
-                url: citation.url_citation.url,
-                title: citation.url_citation.title,
-              })),
-          }
-        : {}),
+      sources:
+        choice.message.annotations
+          ?.filter((annotation) => annotation.type === 'url_citation')
+          .map((citation) => ({
+            sourceType: 'url' as const,
+            id: citation.url_citation.url,
+            url: citation.url_citation.url,
+            title: citation.url_citation.title,
+          })) ?? [],
       ...(hasProviderMetadata ? { providerMetadata } : {}),
     };
   }
@@ -675,18 +669,18 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             }
 
             if (choice?.delta?.annotations != null) {
-              const citations = choice.delta.annotations
-                .filter((annotation) => annotation.type === 'url_citation')
-                .map((citation) => ({
-                  url: citation.url_citation.url,
-                  title: citation.url_citation.title,
-                }));
-
-              if (citations.length > 0) {
-                controller.enqueue({
-                  type: 'experimental-citations',
-                  citations,
-                } as any);
+              for (const annotation of choice.delta.annotations) {
+                if (annotation.type === 'url_citation') {
+                  controller.enqueue({
+                    type: 'source',
+                    source: {
+                      sourceType: 'url',
+                      id: annotation.url_citation.url,
+                      url: annotation.url_citation.url,
+                      title: annotation.url_citation.title,
+                    },
+                  });
+                }
               }
             }
           },
