@@ -67,6 +67,7 @@ export interface ChatCompletionMessageToolCall {
   function: {
     arguments: string;
     name: string;
+    signature?: string;
   };
 }
 

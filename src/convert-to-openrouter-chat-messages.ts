@@ -135,8 +135,9 @@ export function convertToOpenRouterChatMessages(
         const toolCalls: Array<{
           id: string;
           type: 'function';
-          function: { name: string; arguments: string };
+          function: { name: string; arguments: string; signature?: string };
         }> = [];
+        let thoughtSignature: string | undefined;
 
         for (const part of content) {
           switch (part.type) {
@@ -162,6 +163,9 @@ export function convertToOpenRouterChatMessages(
                 text: part.text,
                 signature: part.signature,
               });
+              if (part.signature && !thoughtSignature) {
+                thoughtSignature = part.signature;
+              }
 
               break;
             }
@@ -170,6 +174,10 @@ export function convertToOpenRouterChatMessages(
                 type: ReasoningDetailType.Encrypted,
                 data: part.data,
               });
+              // Encrypted data IS the thought_signature for Gemini
+              if (part.data && !thoughtSignature) {
+                thoughtSignature = part.data;
+              }
               break;
             }
             case 'file':
@@ -178,6 +186,12 @@ export function convertToOpenRouterChatMessages(
               const _exhaustiveCheck: never = part;
               throw new Error(`Unsupported part: ${_exhaustiveCheck}`);
             }
+          }
+        }
+
+        if (thoughtSignature && toolCalls.length > 0) {
+          for (const toolCall of toolCalls) {
+            toolCall.function.signature = thoughtSignature;
           }
         }
 

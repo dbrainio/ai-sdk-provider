@@ -497,4 +497,97 @@ describe('cache control', () => {
       },
     ]);
   });
+
+  it('should pass signature from assistant reasoning to tool_calls for Gemini', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+            signature: 'test-thought-signature',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolCallType: 'function',
+            toolName: 'calculator',
+            args: { operation: 'add', a: 1, b: 2 },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        reasoning: 'Let me think about this...',
+        reasoning_details: [
+          {
+            type: 'reasoning.text',
+            text: 'Let me think about this...',
+            signature: 'test-thought-signature',
+          },
+        ],
+        tool_calls: [
+          {
+            id: 'call-123',
+            type: 'function',
+            function: {
+              name: 'calculator',
+              arguments: JSON.stringify({ operation: 'add', a: 1, b: 2 }),
+              signature: 'test-thought-signature',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass encrypted data as signature to tool_calls for Gemini', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'redacted-reasoning',
+            data: 'CiQBjz1rX4+ywUg+LumWKul9aWamZjDDhoF5CSYP8QOEYMbW2Yg=',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolCallType: 'function',
+            toolName: 'yaml_converter_yamlToJson',
+            args: { yaml: 'test: value' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        reasoning_details: [
+          {
+            type: 'reasoning.encrypted',
+            data: 'CiQBjz1rX4+ywUg+LumWKul9aWamZjDDhoF5CSYP8QOEYMbW2Yg=',
+          },
+        ],
+        tool_calls: [
+          {
+            id: 'call-123',
+            type: 'function',
+            function: {
+              name: 'yaml_converter_yamlToJson',
+              arguments: JSON.stringify({ yaml: 'test: value' }),
+              signature: 'CiQBjz1rX4+ywUg+LumWKul9aWamZjDDhoF5CSYP8QOEYMbW2Yg=',
+            },
+          },
+        ],
+      },
+    ]);
+  });
 });
