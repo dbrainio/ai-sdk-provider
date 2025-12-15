@@ -74,5 +74,6 @@ export interface ChatCompletionToolMessageParam {
   role: 'tool';
   content: string;
   tool_call_id: string;
+  signature?: string;
   cache_control?: OpenRouterCacheControl;
 }

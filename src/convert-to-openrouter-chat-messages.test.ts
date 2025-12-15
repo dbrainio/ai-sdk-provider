@@ -436,6 +436,68 @@ describe('cache control', () => {
     ]);
   });
 
+  it('should pass signature from tool message provider metadata (openrouter)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-123',
+            toolName: 'calculator',
+            result: { answer: 42 },
+            isError: false,
+            providerMetadata: {
+              openrouter: {
+                signature: 'test-signature-token',
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'call-123',
+        content: JSON.stringify({ answer: 42 }),
+        signature: 'test-signature-token',
+      },
+    ]);
+  });
+
+  it('should pass signature from tool message provider metadata (google)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-123',
+            toolName: 'calculator',
+            result: { answer: 42 },
+            isError: false,
+            providerMetadata: {
+              google: {
+                signature: 'gemini-signature-token',
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'call-123',
+        content: JSON.stringify({ answer: 42 }),
+        signature: 'gemini-signature-token',
+      },
+    ]);
+  });
+
   it('should support the alias cache_control field', () => {
     const result = convertToOpenRouterChatMessages([
       {

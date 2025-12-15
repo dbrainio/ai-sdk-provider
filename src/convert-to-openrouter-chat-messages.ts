@@ -196,10 +196,14 @@ export function convertToOpenRouterChatMessages(
 
       case 'tool': {
         for (const toolResponse of content) {
+          const signature =
+            (toolResponse.providerMetadata?.openrouter as any)?.signature ??
+            (toolResponse.providerMetadata?.google as any)?.signature;
           messages.push({
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
             content: JSON.stringify(toolResponse.result),
+            signature: signature,
             cache_control:
               getCacheControl(providerMetadata) ??
               getCacheControl(toolResponse.providerMetadata),
